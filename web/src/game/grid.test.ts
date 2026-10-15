@@ -7,7 +7,9 @@ import {
   extendDrag,
   isComplete,
   isSolved,
+  missingSegment,
   ownerOf,
+  segmentCount,
   startDrag,
   type Cell,
   type Level,
@@ -169,5 +171,30 @@ describe("helpers", () => {
     expect(cellAt(3, rect, 9, 20)).toBeNull();
     expect(cellAt(3, rect, 310, 20)).toBeNull();
     expect(cellAt(3, { ...rect, width: 0 }, 10, 20)).toBeNull();
+  });
+});
+
+describe("segmentCount", () => {
+  it("counts one segment per step between consecutive cells", () => {
+    expect(segmentCount({})).toBe(0);
+    expect(segmentCount({ a: [[0, 0]] })).toBe(0);
+    expect(segmentCount({ a: [[0, 0], [0, 1], [0, 2]], b: [[1, 0], [1, 1]] })).toBe(3);
+  });
+});
+
+describe("missingSegment", () => {
+  const solution: Paths = { a: [[0, 0], [0, 1], [0, 2]] };
+
+  it("returns the first solution step the board does not draw", () => {
+    expect(missingSegment(solution, {})).toEqual([[0, 0], [0, 1]]);
+    expect(missingSegment(solution, { a: [[0, 0], [0, 1]] })).toEqual([[0, 1], [0, 2]]);
+  });
+
+  it("accepts a step drawn in either direction", () => {
+    expect(missingSegment(solution, { a: [[0, 2], [0, 1], [0, 0]] })).toBeNull();
+  });
+
+  it("returns null once the solution is fully drawn", () => {
+    expect(missingSegment(solution, { a: [[0, 0], [0, 1], [0, 2]] })).toBeNull();
   });
 });

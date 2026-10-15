@@ -145,3 +145,29 @@ export function cellAt(
   const cell: Cell = [row, col];
   return inBounds(size, cell) ? cell : null;
 }
+
+/** Drawn segments on the board: each step between two consecutive cells of a path counts once. */
+export function segmentCount(paths: Paths): number {
+  return Object.values(paths).reduce((sum, path) => sum + Math.max(0, path.length - 1), 0);
+}
+
+/**
+ * The first step of `solution` that `paths` does not already draw, as its two
+ * cells. A step counts as drawn when the same pair's path joins those cells.
+ */
+export function missingSegment(solution: Paths, paths: Paths): readonly [Cell, Cell] | null {
+  for (const [id, cells] of Object.entries(solution)) {
+    const drawn = paths[id] ?? [];
+    for (let i = 0; i + 1 < cells.length; i++) {
+      const a = cells[i];
+      const b = cells[i + 1];
+      if (!a || !b) continue;
+      const has = drawn.some((c, j) => {
+        const prev = drawn[j - 1];
+        return prev !== undefined && ((sameCell(prev, a) && sameCell(c, b)) || (sameCell(prev, b) && sameCell(c, a)));
+      });
+      if (!has) return [a, b];
+    }
+  }
+  return null;
+}

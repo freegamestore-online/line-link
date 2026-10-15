@@ -1,9 +1,11 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Cell } from "./grid";
 import { STARTER } from "./levels";
 import { LineLinkGame } from "./LineLinkGame";
+import { LineLinkTopbar } from "./LineLinkTopbar";
 import { PuzzleGrid } from "./PuzzleGrid";
+import { HINT_LIMIT, useLevelSession } from "./useLevelSession";
 
 const CELL = 100; // a 5×5 board drawn 500px wide, so each cell is 100px
 const SIZE = 5;
@@ -19,7 +21,21 @@ function drawPath(svg: Element, [first, ...rest]: readonly Cell[]) {
   fireEvent.pointerUp(svg, { pointerId: 1 });
 }
 
+/** The HUD and the board together, as App mounts them, for one puzzle attempt. */
+function Game({ onNext }: { onNext?: () => void }) {
+  const session = useLevelSession(level);
+  return (
+    <>
+      <LineLinkTopbar session={session} />
+      <LineLinkGame session={session} onNext={onNext} />
+    </>
+  );
+}
+
+const stat = (label: string) => screen.getByText(label).parentElement?.textContent ?? "";
+
 beforeEach(() => {
+  localStorage.clear();
   // jsdom has no layout; give the board a fixed box so pixel positions map to cells.
   vi.spyOn(SVGElement.prototype, "getBoundingClientRect").mockReturnValue({
     left: 0, top: 0, width: SIZE * CELL, height: SIZE * CELL, right: SIZE * CELL, bottom: SIZE * CELL, x: 0, y: 0, toJSON: () => ({}),
@@ -61,7 +77,7 @@ describe("PuzzleGrid", () => {
 
 describe("LineLinkGame", () => {
   it("shows the solved message once every pair is joined and every cell is filled", () => {
-    render(<LineLinkGame level={level} />);
+    render(<Game />);
     const svg = screen.getByRole("img");
     expect(screen.queryByText("Solved!")).toBeNull();
 
@@ -71,7 +87,7 @@ describe("LineLinkGame", () => {
   });
 
   it("refuses a drag that would cross a finished path", () => {
-    const { container } = render(<LineLinkGame level={level} />);
+    const { container } = render(<Game />);
     const svg = screen.getByRole("img");
     // Red (column 0) is drawn in full. Blue starts at (0,1) and tries to step onto red's (0,0).
     drawPath(svg, solution[0] ?? []);
@@ -81,12 +97,97 @@ describe("LineLinkGame", () => {
   });
 
   it("clears the board on Reset", () => {
-    render(<LineLinkGame level={level} />);
+    render(<Game />);
     const svg = screen.getByRole("img");
     for (const path of solution) drawPath(svg, path);
     expect(screen.getByText("Solved!")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Reset" }));
     expect(screen.queryByText("Solved!")).toBeNull();
+  });
+
+  it("counts a move for every segment the paths gain", () => {
+    render(<Game />);
+    const svg = screen.getByRole("img");
+    expect(stat("Moves")).toContain("0");
+    drawPath(svg, solution[0] ?? []);
+    expect(stat("Moves")).toContain(String((solution[0]?.length ?? 1) - 1));
+  });
+
+  it("starts the clock on the first move and stops it when solved", () => {
+    vi.useFakeTimers();
+    try {
+      render(<Game />);
+      const svg = screen.getByRole("img");
+      expect(stat("Time")).toContain("0:00");
+      act(() => vi.advanceTimersByTime(5000));
+      expect(stat("Time")).toContain("0:00");
+
+      drawPath(svg, solution[0] ?? []);
+      act(() => vi.advanceTimersByTime(65_000));
+      expect(stat("Time")).toContain("1:05");
+
+      for (const path of solution.slice(1)) drawPath(svg, path);
+      expect(screen.getByText("Solved!")).toBeTruthy();
+      act(() => vi.advanceTimersByTime(60_000));
+      expect(stat("Time")).toContain("1:05");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("saves the best time and fewest moves for the puzzle when solved", () => {
+    render(<Game />);
+    const svg = screen.getByRole("img");
+    for (const path of solution) drawPath(svg, path);
+    const saved = JSON.parse(localStorage.getItem(`line-link:records:${level.name}`) ?? "{}");
+    expect(saved.fewestMoves).toBeGreaterThan(0);
+    expect(saved.bestSeconds).toBe(0);
+    expect(screen.getByText(/Best 0:00 · fewest/)).toBeTruthy();
+  });
+
+  it("keeps the earlier record when a later solve is no better", () => {
+    localStorage.setItem(
+      `line-link:records:${level.name}`,
+      JSON.stringify({ bestSeconds: 0, fewestMoves: 1 }),
+    );
+    render(<Game />);
+    const svg = screen.getByRole("img");
+    for (const path of solution) drawPath(svg, path);
+    expect(JSON.parse(localStorage.getItem(`line-link:records:${level.name}`) ?? "{}")).toEqual({
+      bestSeconds: 0,
+      fewestMoves: 1,
+    });
+  });
+
+  it(`highlights one solution step per hint and stops after ${HINT_LIMIT}`, () => {
+    const { container } = render(<Game />);
+    const hint = screen.getByRole("button", { name: "Hint" });
+    for (let i = 0; i < HINT_LIMIT; i++) fireEvent.click(hint);
+    expect(container.querySelectorAll('[data-testid="hint"]')).toHaveLength(1);
+    expect(stat("Hints")).toContain("0");
+    expect((hint as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("highlights a step the board does not already draw", () => {
+    const { container } = render(<Game />);
+    const svg = screen.getByRole("img");
+    drawPath(svg, solution[0] ?? []);
+    fireEvent.click(screen.getByRole("button", { name: "Hint" }));
+    const line = container.querySelector('[data-testid="hint"]');
+    expect(line).toBeTruthy();
+    // Column 0 is already drawn, so the first hint must come from another path.
+    expect(line?.getAttribute("x1")).not.toBe("0.5");
+  });
+
+  it("keeps hints used across Reset but clears moves and the highlight", () => {
+    const { container } = render(<Game />);
+    const svg = screen.getByRole("img");
+    drawPath(svg, solution[0] ?? []);
+    fireEvent.click(screen.getByRole("button", { name: "Hint" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+    expect(stat("Moves")).toContain("0");
+    expect(stat("Hints")).toContain(String(HINT_LIMIT - 1));
+    expect(container.querySelector('[data-testid="hint"]')).toBeNull();
   });
 });

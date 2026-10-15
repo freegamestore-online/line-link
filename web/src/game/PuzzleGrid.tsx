@@ -7,6 +7,8 @@ interface PuzzleGridProps {
   onBegin: (cell: Cell) => void;
   onDrag: (cell: Cell) => void;
   onEnd: () => void;
+  /** A step to highlight, as the two cells it joins. */
+  hint?: readonly [Cell, Cell] | null;
 }
 
 const PATH_WIDTH = 0.42;
@@ -16,7 +18,7 @@ const DOT_RADIUS = 0.3;
  * The puzzle board as an SVG, one unit per cell. Pointer positions are mapped
  * to cells from the SVG's bounding box, so the board scales with its container.
  */
-export function PuzzleGrid({ level, paths, onBegin, onDrag, onEnd }: PuzzleGridProps) {
+export function PuzzleGrid({ level, paths, onBegin, onDrag, onEnd, hint }: PuzzleGridProps) {
   const { size } = level;
   const cellOf = (e: PointerEvent<SVGSVGElement>): Cell | null =>
     cellAt(size, e.currentTarget.getBoundingClientRect(), e.clientX, e.clientY);
@@ -48,6 +50,19 @@ export function PuzzleGrid({ level, paths, onBegin, onDrag, onEnd }: PuzzleGridP
           <line x1={0} y1={i + 1} x2={size} y2={i + 1} />
         </g>
       ))}
+      {hint && (
+        <line
+          data-testid="hint"
+          x1={hint[0][1] + 0.5}
+          y1={hint[0][0] + 0.5}
+          x2={hint[1][1] + 0.5}
+          y2={hint[1][0] + 0.5}
+          stroke="var(--accent)"
+          strokeWidth={PATH_WIDTH + 0.16}
+          strokeLinecap="round"
+          opacity={0.5}
+        />
+      )}
       {level.pairs.map((pair) => {
         const path = paths[pair.id] ?? [];
         return (
