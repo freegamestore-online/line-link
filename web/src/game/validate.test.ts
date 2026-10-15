@@ -5,7 +5,7 @@ import { STARTER } from "./levels";
 import type { Level } from "./grid";
 
 describe("validatePuzzle rejects puzzles with more than one solution", () => {
-  it("flags the bundled 5×5 starter, which has three solutions", () => {
+  it("flags the 5×5 starter, which has several solutions", () => {
     expect(validatePuzzle(STARTER.level)).toEqual(["has more than one solution"]);
   });
 
