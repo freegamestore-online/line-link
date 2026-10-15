@@ -1,14 +1,14 @@
 {
-  "name": "APPNAME",
+  "name": "line-link",
   "private": true,
   "packageManager": "pnpm@10.30.3",
   "engines": { "node": ">=22" },
   "pnpm": { "onlyBuiltDependencies": ["esbuild"] },
   "scripts": {
-    "dev": "pnpm --filter @APPNAME/web dev",
-    "build": "pnpm --filter @APPNAME/web build",
-    "preview": "pnpm --filter @APPNAME/web preview",
-    "typecheck": "pnpm --filter @APPNAME/web exec tsc -b",
-    "test": "pnpm --filter @APPNAME/web test"
+    "dev": "pnpm --filter @line-link/web dev",
+    "build": "pnpm --filter @line-link/web build",
+    "preview": "pnpm --filter @line-link/web preview",
+    "typecheck": "pnpm --filter @line-link/web exec tsc -b",
+    "test": "pnpm --filter @line-link/web test"
   }
 }
