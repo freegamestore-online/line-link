@@ -2,10 +2,19 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { missingSegment, segmentCount, type Cell, type Level, type Paths } from "./grid";
 import { loadRecords, mergeRecords, saveRecords, type Records } from "./records";
 import { findSolutions } from "./solver";
+import { starRating } from "./stars";
 import { usePuzzle } from "./usePuzzle";
 import { useElapsed } from "../hooks/useElapsed";
 
 export const HINT_LIMIT = 3;
+
+/** What a finished attempt scored. */
+export interface SolveResult {
+  seconds: number;
+  moves: number;
+  hintsUsed: number;
+  stars: number;
+}
 
 /**
  * One puzzle attempt: the board plus its move count, timer, hints and the
@@ -23,6 +32,7 @@ export function useLevelSession(level: Level) {
   const [hintsUsed, setHintsUsed] = useState(0);
   const [hint, setHint] = useState<readonly [Cell, Cell] | null>(null);
   const [records, setRecords] = useState<Records>(() => loadRecords(level.name));
+  const [result, setResult] = useState<SolveResult | null>(null);
 
   const segments = segmentCount(paths);
   const counted = useRef(0);
@@ -39,10 +49,21 @@ export function useLevelSession(level: Level) {
   const seconds = useElapsed(startedAt, stoppedAt);
 
   useEffect(() => {
-    if (!solved || startedAt === null) return;
+    if (!solved || startedAt === null) {
+      setResult(null);
+      return;
+    }
     const now = Date.now();
     setStoppedAt(now);
-    const next = mergeRecords(records, { seconds: Math.floor((now - startedAt) / 1000), moves });
+    const seconds = Math.floor((now - startedAt) / 1000);
+    const solve: SolveResult = {
+      seconds,
+      moves,
+      hintsUsed,
+      stars: starRating({ seconds, hintsUsed, size: level.size }),
+    };
+    setResult(solve);
+    const next = mergeRecords(records, solve);
     setRecords(next);
     saveRecords(level.name, next);
     // Runs once per solve; the other values are read at that moment.
@@ -85,8 +106,10 @@ export function useLevelSession(level: Level) {
     moves,
     seconds,
     hint,
+    hintsUsed,
     hintsLeft,
     records,
+    result,
     begin,
     drag,
     end,

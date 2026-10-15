@@ -2,14 +2,16 @@
 export interface Records {
   bestSeconds: number | null;
   fewestMoves: number | null;
+  bestStars: number | null;
 }
 
 export interface Result {
   seconds: number;
   moves: number;
+  stars: number;
 }
 
-const EMPTY: Records = { bestSeconds: null, fewestMoves: null };
+const EMPTY: Records = { bestSeconds: null, fewestMoves: null, bestStars: null };
 
 const key = (levelName: string) => `line-link:records:${levelName}`;
 
@@ -20,7 +22,11 @@ export function loadRecords(levelName: string): Records {
     const raw = localStorage.getItem(key(levelName));
     if (!raw) return EMPTY;
     const stored = JSON.parse(raw) as Partial<Record<keyof Records, unknown>>;
-    return { bestSeconds: numberOrNull(stored.bestSeconds), fewestMoves: numberOrNull(stored.fewestMoves) };
+    return {
+      bestSeconds: numberOrNull(stored.bestSeconds),
+      fewestMoves: numberOrNull(stored.fewestMoves),
+      bestStars: numberOrNull(stored.bestStars),
+    };
   } catch {
     return EMPTY;
   }
@@ -31,11 +37,13 @@ export function saveRecords(levelName: string, records: Records): void {
 }
 
 const lower = (a: number | null, b: number): number => (a === null ? b : Math.min(a, b));
+const higher = (a: number | null, b: number): number => (a === null ? b : Math.max(a, b));
 
-/** Fold one solve into the records: each field keeps its own best. */
+/** Fold one solve into the records: time and moves keep their lowest, stars their highest. */
 export function mergeRecords(prev: Records, result: Result): Records {
   return {
     bestSeconds: lower(prev.bestSeconds, result.seconds),
     fewestMoves: lower(prev.fewestMoves, result.moves),
+    bestStars: higher(prev.bestStars, result.stars),
   };
 }

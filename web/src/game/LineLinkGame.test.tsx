@@ -149,7 +149,7 @@ describe("LineLinkGame", () => {
   it("keeps the earlier record when a later solve is no better", () => {
     localStorage.setItem(
       `line-link:records:${level.name}`,
-      JSON.stringify({ bestSeconds: 0, fewestMoves: 1 }),
+      JSON.stringify({ bestSeconds: 0, fewestMoves: 1, bestStars: 3 }),
     );
     render(<Game />);
     const svg = screen.getByRole("img");
@@ -157,15 +157,16 @@ describe("LineLinkGame", () => {
     expect(JSON.parse(localStorage.getItem(`line-link:records:${level.name}`) ?? "{}")).toEqual({
       bestSeconds: 0,
       fewestMoves: 1,
+      bestStars: 3,
     });
   });
 
   it(`highlights one solution step per hint and stops after ${HINT_LIMIT}`, () => {
     const { container } = render(<Game />);
-    const hint = screen.getByRole("button", { name: "Hint" });
+    const hint = screen.getByRole("button", { name: /^Hint/ });
     for (let i = 0; i < HINT_LIMIT; i++) fireEvent.click(hint);
     expect(container.querySelectorAll('[data-testid="hint"]')).toHaveLength(1);
-    expect(stat("Hints")).toContain("0");
+    expect(hint.textContent).toBe("Hint (0)");
     expect((hint as HTMLButtonElement).disabled).toBe(true);
   });
 
@@ -173,7 +174,7 @@ describe("LineLinkGame", () => {
     const { container } = render(<Game />);
     const svg = screen.getByRole("img");
     drawPath(svg, solution[0] ?? []);
-    fireEvent.click(screen.getByRole("button", { name: "Hint" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Hint/ }));
     const line = container.querySelector('[data-testid="hint"]');
     expect(line).toBeTruthy();
     // Column 0 is already drawn, so the first hint must come from another path.
@@ -184,10 +185,40 @@ describe("LineLinkGame", () => {
     const { container } = render(<Game />);
     const svg = screen.getByRole("img");
     drawPath(svg, solution[0] ?? []);
-    fireEvent.click(screen.getByRole("button", { name: "Hint" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Hint/ }));
     fireEvent.click(screen.getByRole("button", { name: "Reset" }));
     expect(stat("Moves")).toContain("0");
-    expect(stat("Hints")).toContain(String(HINT_LIMIT - 1));
+    expect(screen.getByRole("button", { name: `Hint (${HINT_LIMIT - 1})` })).toBeTruthy();
     expect(container.querySelector('[data-testid="hint"]')).toBeNull();
+  });
+
+  it("shows a win screen with stars, time and moves once solved", () => {
+    vi.useFakeTimers();
+    try {
+      render(<Game />);
+      const svg = screen.getByRole("img");
+      drawPath(svg, solution[0] ?? []);
+      act(() => vi.advanceTimersByTime(10_000));
+      for (const path of solution.slice(1)) drawPath(svg, path);
+      expect(screen.getByRole("status").textContent).toContain("Solved!");
+      // 5×5 par is 75s and no hints were used, so a 10s solve earns three stars.
+      expect(screen.getByText("3 of 3 stars")).toBeTruthy();
+      expect(screen.getByText(/Time 0:10 · Moves \d+ · Hints 0\/3/)).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("drops two stars for a solve that used a hint", () => {
+    vi.useFakeTimers();
+    try {
+      render(<Game />);
+      fireEvent.click(screen.getByRole("button", { name: /^Hint/ }));
+      const svg = screen.getByRole("img");
+      for (const path of solution) drawPath(svg, path);
+      expect(screen.getByText("2 of 3 stars")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

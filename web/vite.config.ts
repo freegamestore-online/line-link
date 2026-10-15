@@ -43,7 +43,7 @@ export default defineConfig({
       manifest: {
         name: "Line Link",
         short_name: "Line Link",
-        description: "Line Link — free forever",
+        description: "Join each pair of matching dots with a path that fills the whole grid. Free and MIT-licensed, with a move counter, a timer and three hints per puzzle.",
         start_url: "/",
         display: "standalone",
         background_color: "#0f0f0f",

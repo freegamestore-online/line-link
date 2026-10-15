@@ -12,17 +12,17 @@ export function formatTime(totalSeconds: number): string {
 /** The HUD for one puzzle attempt: moves, time, hints left, and the hint action. */
 export function LineLinkTopbar({ session }: { session: LevelSession }) {
   const { moves, seconds, hintsLeft, solved, showHint } = session;
+  // Hints left sit in the button label: a third stat does not fit a 320px topbar beside the Hint button.
   return (
     <GameTopbar
       title="Line Link"
       stats={[
         { label: "Moves", value: moves },
         { label: "Time", value: formatTime(seconds) },
-        { label: "Hints", value: hintsLeft },
       ]}
       actions={
         <GameButton variant="secondary" size="sm" onClick={showHint} disabled={hintsLeft <= 0 || solved}>
-          Hint
+          Hint ({hintsLeft})
         </GameButton>
       }
     />
