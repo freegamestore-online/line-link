@@ -2,6 +2,8 @@ name: CI
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -14,3 +16,5 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
+      # Includes the pack check: every bundled puzzle must have exactly one solution.
+      - run: pnpm test
